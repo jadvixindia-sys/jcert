@@ -1,0 +1,51 @@
+# Jadvix Certificate Portal — Nginx reverse proxy
+# Serves the whole app on port 80 from ONE origin (the Elastic IP):
+#   /            -> Next.js frontend  (127.0.0.1:3000)
+#   /api/        -> Express API       (127.0.0.1:8000)
+#   /uploads/    -> Express static    (127.0.0.1:8000)  [certificate/institute logos]
+#
+# Same-origin means no CORS issues and the session cookie "just works".
+#
+# Install:
+#   sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/jadvix
+#   sudo ln -s /etc/nginx/sites-available/jadvix /etc/nginx/sites-enabled/jadvix
+#   sudo rm -f /etc/nginx/sites-enabled/default
+#   sudo nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;                # replace with your Elastic IP or domain
+
+    # Allow image uploads up to 5 MB (matches the API limit).
+    client_max_body_size 6M;
+
+    # ---- API ----
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- Uploaded assets (logos, branding) ----
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- Frontend (Next.js) ----
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;   # Next HMR / websockets
+        proxy_set_header Connection        "upgrade";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
