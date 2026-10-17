@@ -1,6 +1,9 @@
 import type { Certificate, SiteSettings } from './types';
 
-const INTERNAL = process.env.API_INTERNAL_URL || 'http://localhost:8000/api';
+const rawInternal = process.env.API_INTERNAL_URL || 'http://localhost:8000/api';
+const INTERNAL = rawInternal.replace(/\/+$/, '').endsWith('/api')
+  ? rawInternal.replace(/\/+$/, '')
+  : `${rawInternal.replace(/\/+$/, '')}/api`;
 
 /** Server-side fetch used by SSR verify pages + sitemap. Never sends cookies. */
 async function serverGet<T>(path: string, revalidate = 0): Promise<T | null> {
